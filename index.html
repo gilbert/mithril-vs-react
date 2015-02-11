@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <script src="ext/arrays.js"></script>
+    <script src="vendor/react.js"></script>
+    <script src="vendor/JSXTransformer.js"></script>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <script type="text/jsx">
+
+      // App
+      // The top-level app component.
+      // This should have direct access to the model data.
+      // The top-level app is responsible for passing appropriate state down
+      // to each of its children components - in this case, child Team components.
+      //
+      var App = React.createClass({
+
+        getInitialState: function () {
+          // The model data,
+          // hardcoded for simplicity.
+          return {
+            teams: [
+              { id: 0, name: "Red" },
+              { id: 1, name: "Blue" },
+              { id: 2, name: "Yellow" }
+            ],
+            people: [
+              { id: 0, name: "Alice" },
+              { id: 1, name: "Bob" },
+              { id: 2, name: "Christine", teamId: 0 },
+              { id: 3, name: "Dan", teamId: 1 },
+              { id: 4, name: "Emily", teamId: 1 },
+              { id: 5, name: "Frank" },
+              { id: 6, name: "Gilbert", teamId: 2 },
+              { id: 7, name: "Hank" },
+              { id: 8, name: "Isabel" },
+            ]
+          }
+        },
+        render: function () {
+          var ctrl = this
+          var state = ctrl.state
+          return <div>
+            <div className="left-side">
+              <Team name="Available" members={state.people.filter(isAvailable(null))} />
+            </div>
+            <div className="right-side">
+              <div className="teams">
+                {state.teams.map(renderTeam)}
+              </div>
+            </div>
+          </div>
+          function renderTeam (team) {
+            return <Team
+              id={team.id}
+              name={team.name}
+              // Here we pass down all the people that are already a member of this team.
+              members={ state.people.filter(hasTeam(team.id)) }
+
+              // Here we pass down all available people for this particular team.
+              // Note how App is responsible for filtering;
+              // a Team component simply uses what is given to it.
+              available={ state.people.filter(isAvailable(team.id)) }
+
+              // Here we pass down a function (defined below)
+              onMemberClick={ ctrl.setMembership } />
+          }
+          function hasTeam (teamId) {
+            return function(person) { return person.teamId === teamId }
+          }
+          function isAvailable (teamId) {
+            return function (person) { return person.teamId === undefined }
+          }
+        },
+
+        // This is a function that App passes down to its Team children.
+        // This is necessary because state is private to its component.
+        // In other words, only App can modify its own state.
+        setMembership: function (personId, teamId) {
+          var person = this.state.people.find(function(p) { return p.id === personId })
+          person.teamId = teamId
+          this.setState({ people: this.state.people })
+        }
+      })
+
+
+
+      // Team
+      // This is, though not necessarily, a child component of App.
+      // It handles the display and management of a single team.
+      var Team = React.createClass({
+        getInitialState: function () {
+          return { status: 'showing' }
+        },
+        render: function () {
+          var ctrl  = this
+          var state = ctrl.state
+          var props = ctrl.props
+
+          return <div className={"team " + state.status}>
+            <h3>{this.props.name}</h3>
+            <div className="people">
+              {renderPeople()}
+            </div>
+            {renderAddButton()}
+          </div>
+
+          function renderPeople () {
+            if (state.status === "showing") {
+              return props.members.map(renderPerson)
+            }
+            else if (state.status === "editing") {
+              return props.members.concat(props.available).sort(byName).map(renderEditablePerson)
+            }
+            function byName (p1, p2) { return p1.name.localeCompare(p2.name) }
+          }
+          function renderPerson (person) {
+            return <div className="person">{person.name}</div>
+          }
+          function renderEditablePerson (person) {
+            var people = props.available
+            var isSelected = isPersonSelected(person)
+            return <div className={"person " + (isSelected ? "selected" : "") }
+                        onClick={ctrl.onMemberClick.bind(null,person)}>
+              <span className="member-status">{isSelected ? "\u2713 " : "+ "}</span>
+              {person.name}
+            </div>
+          }
+          function isPersonSelected (person) {
+            return !! props.members.find(function(p) {
+              return p.id === person.id && p.teamId === props.id
+            })
+          }
+
+          function renderAddButton () {
+            if (props.available) {
+              return <div className="add" onClick={ctrl.toggleStatus}>
+                { state.status === "showing" ? "+-" : "^" }
+              </div>
+            }
+          }
+        },
+
+        onMemberClick: function (person) {
+          var newTeamId = (person.teamId === undefined) ? this.props.id : undefined
+          this.props.onMemberClick(person.id, newTeamId)
+        },
+
+        toggleStatus: function () {
+          var newStatus = this.state.status === 'showing' ? 'editing' : 'showing'
+          this.setState({ status: newStatus })
+        }
+      })
+
+
+      React.render(
+        <div>
+          <h1>Super Special Awesome Person Team Manager</h1>
+          <App />
+        </div>,
+        document.getElementById('app')
+      )
+
+      function getProp (name) {
+        return function (obj) {
+          return obj[name]
+        }
+      }
+    </script>
+  </body>
+</html>
